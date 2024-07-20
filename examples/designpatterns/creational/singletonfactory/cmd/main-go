@@ -1,0 +1,90 @@
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+// Database 是一个模拟数据库连接的结构体
+type Database struct {
+	connectionString string
+}
+
+// Connect 模拟数据库连接
+func (db *Database) Connect() {
+	fmt.Printf("Connected to database with %s\n", db.connectionString)
+}
+
+// DatabaseType 是一个枚举类型，用于区分不同的数据库
+type DatabaseType int
+
+const (
+	MySQL DatabaseType = iota
+	PostgreSQL
+	MongoDB
+)
+
+// DatabaseFactory 是单例工厂结构体
+type DatabaseFactory struct {
+	databases map[DatabaseType]*Database
+}
+
+var (
+	factory *DatabaseFactory
+	once    sync.Once
+)
+
+// GetDatabaseFactory 返回 DatabaseFactory 的单例实例
+func GetDatabaseFactory() *DatabaseFactory {
+	once.Do(func() {
+		factory = &DatabaseFactory{
+			databases: make(map[DatabaseType]*Database),
+		}
+	})
+	return factory
+}
+
+// GetDatabase 根据数据库类型返回相应的数据库实例
+func (f *DatabaseFactory) GetDatabase(dbType DatabaseType) *Database {
+	if db, exists := f.databases[dbType]; exists {
+		return db
+	}
+
+	var db *Database
+	switch dbType {
+	case MySQL:
+		db = &Database{connectionString: "mysql://localhost:3306/mydb"}
+	case PostgreSQL:
+		db = &Database{connectionString: "postgresql://localhost:5432/mydb"}
+	case MongoDB:
+		db = &Database{connectionString: "mongodb://localhost:27017/mydb"}
+	default:
+		panic("Unsupported database type")
+	}
+
+	f.databases[dbType] = db
+	return db
+}
+
+func main() {
+	// 获取数据库工厂实例
+	factory := GetDatabaseFactory()
+
+	// 获取并使用 MySQL 数据库实例
+	mysqlDB := factory.GetDatabase(MySQL)
+	mysqlDB.Connect()
+
+	// 再次获取 MySQL 数据库实例（将返回相同的实例）
+	mysqlDB2 := factory.GetDatabase(MySQL)
+	if mysqlDB == mysqlDB2 {
+		fmt.Println("MySQL: Same instance")
+	}
+
+	// 获取并使用 PostgreSQL 数据库实例
+	postgresDB := factory.GetDatabase(PostgreSQL)
+	postgresDB.Connect()
+
+	// 获取并使用 MongoDB 数据库实例
+	mongoDBDB := factory.GetDatabase(MongoDB)
+	mongoDBDB.Connect()
+}
