@@ -3,8 +3,8 @@ package main
 type Adidas struct {
 }
 
-func (a *Adidas) makeShoes() IShoe {
-	return &AdidasShoes{
+func (a *Adidas) makeShoe() IShoe {
+	return &AdidasShoe{
 		Shoe: Shoe{
 			logo: "adidas",
 			size: 13,
