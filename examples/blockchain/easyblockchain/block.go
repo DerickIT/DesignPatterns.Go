@@ -10,7 +10,7 @@ type Block struct {
 	Nonce         int64
 }
 
-func NewGensisBlock() *Block {
+func NewGenesisBlock() *Block {
 	return NewBlock("Genesis Block", []byte{})
 }
 
