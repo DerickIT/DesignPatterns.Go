@@ -1,65 +1,46 @@
 package httpgo
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
+	"log"
 	"net/http"
-	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
-var client = &http.Client{
-	Timeout: 10 * time.Second,
+var MsgFlag = map[int]string{
+	200: "OK",
+	201: "Created",
+	202: "Accepted",
+	204: "No Content",
+	400: "Bad Request",
+	401: "Unauthorized",
+	403: "Forbidden",
+	404: "Not Found",
+	405: "Method Not Allowed",
+	409: "Conflict",
+	500: "Internal Server Error",
+	502: "Bad Gateway",
+	503: "Service Unavailable",
+	504: "Gateway Timeout",
 }
 
-func Request(url, method string, body map[string]any, headers map[string]string) (*http.Response, int, error) {
-	payload, err := json.Marshal(body)
+func GetMsg(code int) string {
+	msg, ok := MsgFlag[code]
+	if ok {
+		return msg
+	}
+	return "Unknown"
+}
+
+func ReturnBadRequest(ctx *gin.Context, err error) {
 
 	if err != nil {
-		return nil, 0, fmt.Errorf("error marshalling request body: %v", err)
-	}
-	req, err := http.NewRequest(method, url, bytes.NewReader(payload))
-	if err != nil {
-		return nil, 0, fmt.Errorf("error creating request: %v", err)
-	}
-	if headers != nil {
-		for key, value := range headers {
-			req.Header.Set(key, value)
-		}
-		fmt.Println("====================")
-		fmt.Println("Request url:", url)
-		fmt.Println("Request method:", method)
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    http.StatusBadRequest,
+			"error":   err.Error(),
+			"message": GetMsg(http.StatusBadRequest),
+		})
+		log.Println(err.Error())
 
-		if req.Body != nil {
-			requestBody := req.Body
-			var requestBodyBytes []byte
-			if requestBody != nil {
-				requestBodyBytes, _ = io.ReadAll(requestBody)
-			}
-			fmt.Println("Request body:", string(requestBodyBytes))
-			req.Body = io.NopCloser(bytes.NewBuffer(requestBodyBytes))
-		}
-		fmt.Println("Request headers:")
-		for key, value := range req.Header {
-			for _, v := range value {
-				fmt.Printf("%s:%s\n", key, v)
-			}
-		}
-		fmt.Println("====================")
 	}
-	var resp *http.Response
-	var retryErr error
-	resp, retryErr = client.Do(req)
-	if retryErr != nil {
-		return nil, 0, fmt.Errorf("error sending request: %v", retryErr)
-	}
-
-	if resp.StatusCode == http.StatusUnauthorized {
-		return nil, resp.StatusCode, fmt.Errorf("received 401 status code: %d", resp.StatusCode)
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, resp.StatusCode, fmt.Errorf("received non-200 status code: %d", resp.StatusCode)
-	}
-
 }
