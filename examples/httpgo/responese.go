@@ -1,6 +1,8 @@
 package httpgo
 
 import (
+	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 
@@ -42,5 +44,29 @@ func ReturnBadRequest(ctx *gin.Context, err error) {
 		})
 		log.Println(err.Error())
 
+	} else {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code": http.StatusBadRequest,
+			"msg":  GetMsg(http.StatusBadRequest),
+		})
+		log.Println(GetMsg(http.StatusBadRequest))
 	}
+}
+
+func ReturnJson(response *http.Response, ctx *gin.Context) {
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Panicln("Error reading response body:", err)
+	}
+	var data map[string]interface{}
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		log.Println("Error unmarshalling response body:", err)
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"code": http.StatusOK,
+		"msg":  GetMsg(http.StatusOK),
+		"data": data,
+	})
 }
