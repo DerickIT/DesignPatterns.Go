@@ -2,52 +2,56 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 )
 
 const (
-	totalPassengers = 100
-	processTime     = 200 * time.Millisecond
-	concurrentLimit = 5 // 每个检查点的并发处理数
+	totalPassengers = 200
+	minProcessTime  = 100
+	maxProcessTime  = 1000
+	concurrentLimit = 5
 )
 
-func process(name string, in <-chan int, out chan<- int, wg *sync.WaitGroup) {
+func process(name string, in <-chan int, out chan<- int, wg *sync.WaitGroup, done <-chan bool) {
 	defer wg.Done()
-	for passenger := range in {
-		time.Sleep(processTime)
-		fmt.Printf("%s processed passenger %d\n", name, passenger)
-		if out != nil {
-			out <- passenger
+	for {
+		select {
+		case passenger, ok := <-in:
+			if !ok {
+				return
+			}
+			processTime := time.Duration(rand.Intn(maxProcessTime-minProcessTime+1)+minProcessTime) * time.Millisecond
+			time.Sleep(processTime)
+			fmt.Printf("%s processed passenger %d\n", name, passenger)
+			if out != nil {
+				out <- passenger
+			}
+		case <-done:
+			return
 		}
 	}
 }
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
 	start := time.Now()
+
 	securityChan := make(chan int, concurrentLimit)
 	ticketChan := make(chan int, concurrentLimit)
 	idChan := make(chan int, concurrentLimit)
 	doneChan := make(chan int, totalPassengers)
+	done := make(chan bool)
 
 	var wg sync.WaitGroup
 
-	// 启动安检处理
+	// 启动处理 goroutines
 	for i := 0; i < concurrentLimit; i++ {
-		wg.Add(1)
-		go process("Security", securityChan, ticketChan, &wg)
-	}
-
-	// 启动票检处理
-	for i := 0; i < concurrentLimit; i++ {
-		wg.Add(1)
-		go process("Ticket", ticketChan, idChan, &wg)
-	}
-
-	// 启动身份检查处理
-	for i := 0; i < concurrentLimit; i++ {
-		wg.Add(1)
-		go process("ID", idChan, doneChan, &wg)
+		wg.Add(3)
+		go process("Security", securityChan, ticketChan, &wg, done)
+		go process("Ticket", ticketChan, idChan, &wg, done)
+		go process("ID", idChan, doneChan, &wg, done)
 	}
 
 	// 发送乘客
@@ -58,20 +62,21 @@ func main() {
 		close(securityChan)
 	}()
 
-	// 等待所有处理完成并关闭通道
+	// 等待所有乘客处理完成
 	go func() {
-		wg.Wait()
-		close(ticketChan)
-		close(idChan)
-		close(doneChan)
+		for i := 0; i < totalPassengers; i++ {
+			<-doneChan
+		}
+		close(done)
 	}()
 
-	// 统计处理完的乘客
-	passengersProcessed := 0
-	for range doneChan {
-		passengersProcessed++
-	}
+	wg.Wait()
+
+	close(ticketChan)
+	close(idChan)
+	close(doneChan)
 
 	elapsed := time.Since(start)
-	fmt.Printf("Total passengers processed: %d 耗时：%v\n", passengersProcessed, elapsed)
+	fmt.Printf("Total time: %v\n", elapsed)
+	fmt.Printf("Average time per passenger: %v\n", elapsed/time.Duration(totalPassengers))
 }
