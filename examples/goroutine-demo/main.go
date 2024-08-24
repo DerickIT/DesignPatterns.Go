@@ -35,12 +35,13 @@ func process(name string, in <-chan int, out chan<- int, wg *sync.WaitGroup, don
 }
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
+	rand.New(rand.NewSource(time.Now().UnixNano()))
 	start := time.Now()
 
 	securityChan := make(chan int, concurrentLimit)
 	ticketChan := make(chan int, concurrentLimit)
 	idChan := make(chan int, concurrentLimit)
+	boardingChan := make(chan int, concurrentLimit)
 	doneChan := make(chan int, totalPassengers)
 	done := make(chan bool)
 
@@ -48,10 +49,11 @@ func main() {
 
 	// 启动处理 goroutines
 	for i := 0; i < concurrentLimit; i++ {
-		wg.Add(3)
+		wg.Add(4)
 		go process("Security", securityChan, ticketChan, &wg, done)
 		go process("Ticket", ticketChan, idChan, &wg, done)
-		go process("ID", idChan, doneChan, &wg, done)
+		go process("ID", idChan, boardingChan, &wg, done)
+		go process("Boarding", boardingChan, doneChan, &wg, done)
 	}
 
 	// 发送乘客
@@ -74,6 +76,7 @@ func main() {
 
 	close(ticketChan)
 	close(idChan)
+	close(boardingChan)
 	close(doneChan)
 
 	elapsed := time.Since(start)
