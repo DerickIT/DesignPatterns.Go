@@ -1,85 +1,43 @@
 package main
 
 import (
-	"fmt"
-	"math/rand"
 	"sync"
-	"time"
+	"sync/atomic"
 )
 
-const (
-	totalPassengers = 200
-	minProcessTime  = 100
-	maxProcessTime  = 1000
-	concurrentLimit = 5
-)
+type Count struct {
+	count int64
+}
 
-func process(name string, in <-chan int, out chan<- int, wg *sync.WaitGroup, done <-chan bool) {
-	defer wg.Done()
-	for {
-		select {
-		case passenger, ok := <-in:
-			if !ok {
-				return
-			}
-			processTime := time.Duration(rand.Intn(maxProcessTime-minProcessTime+1)+minProcessTime) * time.Millisecond
-			time.Sleep(processTime)
-			fmt.Printf("%s processed passenger %d\n", name, passenger)
-			if out != nil {
-				out <- passenger
-			}
-		case <-done:
-			return
-		}
-	}
+func NewCount() *Count {
+	return &Count{count: 0}
+}
+
+func (c *Count) Increment() {
+	atomic.AddInt64(&c.count, 1)
+}
+
+func (c *Count) GetCount() int64 {
+	return atomic.LoadInt64(&c.count)
 }
 
 func main() {
-	rand.New(rand.NewSource(time.Now().UnixNano()))
-	start := time.Now()
 
-	securityChan := make(chan int, concurrentLimit)
-	ticketChan := make(chan int, concurrentLimit)
-	idChan := make(chan int, concurrentLimit)
-	boardingChan := make(chan int, concurrentLimit)
-	doneChan := make(chan int, totalPassengers)
-	done := make(chan bool)
-
+	counter := NewCount()
 	var wg sync.WaitGroup
 
-	// 启动处理 goroutines
-	for i := 0; i < concurrentLimit; i++ {
-		wg.Add(4)
-		go process("Security", securityChan, ticketChan, &wg, done)
-		go process("Ticket", ticketChan, idChan, &wg, done)
-		go process("ID", idChan, boardingChan, &wg, done)
-		go process("Boarding", boardingChan, doneChan, &wg, done)
+	for i := 0; i < 1000; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			counter.Increment()
+		}()
 	}
-
-	// 发送乘客
-	go func() {
-		for i := 1; i <= totalPassengers; i++ {
-			securityChan <- i
-		}
-		close(securityChan)
-	}()
-
-	// 等待所有乘客处理完成
-	go func() {
-		for i := 0; i < totalPassengers; i++ {
-			<-doneChan
-		}
-		close(done)
-	}()
 
 	wg.Wait()
 
-	close(ticketChan)
-	close(idChan)
-	close(boardingChan)
-	close(doneChan)
+	if count := counter.GetCount(); count == 1000 {
+		println("Counter is 1000, got:", count)
+	}
 
-	elapsed := time.Since(start)
-	fmt.Printf("Total time: %v\n", elapsed)
-	fmt.Printf("Average time per passenger: %v\n", elapsed/time.Duration(totalPassengers))
 }
