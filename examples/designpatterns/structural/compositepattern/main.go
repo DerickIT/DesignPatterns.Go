@@ -24,7 +24,6 @@ func (composite *Composite) Operation() string {
 
 	for _, child := range composite.children {
 		result += child.Operation() + "\n"
-
 	}
 	return result
 }
