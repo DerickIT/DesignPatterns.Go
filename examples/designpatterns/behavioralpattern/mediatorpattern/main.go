@@ -62,4 +62,5 @@ func main() {
 
 	component1.Send("Hello")
 	component2.Send("Hello2")
+	component3.Send("Hello3")
 }
