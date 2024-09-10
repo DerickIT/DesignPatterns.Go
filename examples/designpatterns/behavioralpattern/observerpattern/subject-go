@@ -1,0 +1,52 @@
+package main
+
+import "fmt"
+
+type Subject struct {
+	observers map[chan interface{}]struct{}
+}
+
+func NewSubject() *Subject {
+	return &Subject{
+		observers: make(map[chan interface{}]struct{}),
+	}
+}
+
+func (s *Subject) Register() chan interface{} {
+	ch := make(chan interface{})
+	s.observers[ch] = struct{}{}
+	return ch
+}
+
+func (s *Subject) Unregister(ch chan interface{}) {
+	delete(s.observers, ch)
+	close(ch)
+}
+
+func (s *Subject) NotifyAll(data interface{}) {
+	for ch := range s.observers {
+		go func(c chan interface{}) {
+			c <- data
+		}(ch)
+	}
+}
+
+type Observer struct {
+	id int
+	ch chan interface{}
+}
+
+func NewObserver(id int, subject *Subject) *Observer {
+	return &Observer{
+		id: id,
+		ch: subject.Register(),
+	}
+}
+
+func (o *Observer) Start() {
+	go func() {
+		for data := range o.ch {
+			fmt.Printf("Observer %d received: %v\n", o.id, data)
+		}
+	}()
+}
