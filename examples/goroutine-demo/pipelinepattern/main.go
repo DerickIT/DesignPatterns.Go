@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/list"
 	"fmt"
 	"sync"
 	"time"
@@ -66,7 +67,44 @@ func merge(ins ...<-chan string) <-chan string {
 	return out
 }
 
+func tailRecur(n, res int) int {
+	if n == 0 {
+		return res
+	}
+	return tailRecur(n-1, res+n)
+}
+
+func fibnacci(n int) int {
+
+	if n == 1 || n == 2 {
+		return n - 1
+	}
+	res := fibnacci(n-1) + fibnacci(n-2)
+	return res
+}
+
+func forLoopRecur(n int) int {
+	stack := list.New()
+	res := 0
+	for i := n; i > 0; i-- {
+		stack.PushBack(i)
+	}
+	for stack.Len() != 0 {
+		res += stack.Back().Value.(int)
+		stack.Remove(stack.Back())
+	}
+
+	// res=1+2+3+4+5+6+7+8+9+10
+	return res
+}
+
 func main() {
+	v0 := forLoopRecur(10)
+	fmt.Println(v0)
+	aa := fibnacci(5)
+	fmt.Println(aa)
+	bb := tailRecur(100000, 0)
+	fmt.Println(bb)
 	coms := buy(100)
 	phones1 := build(coms)
 	phones2 := build(coms)
