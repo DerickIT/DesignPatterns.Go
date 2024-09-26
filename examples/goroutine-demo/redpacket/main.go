@@ -2,10 +2,13 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"sync"
 	"time"
 )
+
+var r *rand.Rand
 
 type RedPacket struct {
 	TotalAmount float64
@@ -36,15 +39,20 @@ func (rp *RedPacket) distributeAmount() {
 	remaining := rp.TotalAmount
 	for i := 0; i < rp.Count-1; i++ {
 		maxAmount := remaining / 2
-		if maxAmount > remaining-0.01*float64(rp.Count-i-1) {
-			maxAmount = remaining - 0.01*float64(rp.Count-i-1)
+		// randFloat := rand.Float64()
+		remainingSum := remaining - 0.01*float64(rp.Count-i-1)
+		if maxAmount > remainingSum {
+			maxAmount = remainingSum
 		}
-		amount := 0.01 + rand.Float64()*(maxAmount-0.01)
-		amount = float64(int(amount*100)) / 100
+		// amount := 0.01 + randFloat*(maxAmount-0.01)
+		// amount = float64(int(amount*100)) / 100
+		amount := 0.01 + r.Float64()*(maxAmount-0.01)
+		amount = math.Floor(amount*100) / 100 // 向下取整到分
 		rp.Amounts[i] = amount
 		remaining -= amount
 	}
-	rp.Amounts[rp.Count-1] = float64(int(remaining*100)) / 100
+	// rp.Amounts[rp.Count-1] = float64(int(remaining*100)) / 100
+	rp.Amounts[rp.Count-1] = math.Round(remaining*100) / 100
 }
 
 func (rp *RedPacket) GrabRedPacket(userName string) (GrabRecord, error) {
@@ -81,7 +89,7 @@ func grabRedPacketWorker(rp *RedPacket, userName string, resultChan chan<- GrabR
 func main() {
 	// rand.Seed(time.Now().UnixNano())
 
-	rand.New(rand.NewSource(time.Now().UnixNano()))
+	r = rand.New(rand.NewSource(time.Now().UnixNano()))
 	// 生成15个用户名
 	userNames := []string{
 		"张三", "李四", "王五", "赵六", "钱七",
@@ -94,7 +102,6 @@ func main() {
 	var wg sync.WaitGroup
 	resultChan := make(chan GrabRecord, len(userNames))
 
-	// 模拟用户并发抢红包
 	for _, userName := range userNames {
 		wg.Add(1)
 		go grabRedPacketWorker(redPacket, userName, resultChan, &wg)
